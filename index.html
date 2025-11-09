@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IT Infrastructure Management System (IIMS)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <style>
+        .alert-banner {
+            animation: slideDown 0.3s ease-out;
+        }
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        /* Mobile responsiveness for tables */
+        @media (max-width: 768px) {
+            .table-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .table-container table {
+                min-width: 800px;
+            }
+            .mobile-stack {
+                display: block;
+            }
+            .mobile-stack > * {
+                margin-bottom: 0.5rem;
+            }
+        }
+        .qr-code-placeholder {
+            width: 200px;
+            height: 200px;
+            border: 2px dashed #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f9fafb;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Login Page (ITM-SR-002) -->
+    <div id="loginPage" class="fixed inset-0 bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md mx-4">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">IIMS Login</h1>
+                <p class="text-gray-600">IT Infrastructure Management System</p>
+            </div>
+            <form id="loginForm" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                    <input type="text" id="loginUsername" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Enter username" required>
+                    <p class="text-xs text-gray-500 mt-1">Try: admin, itstaff, or employee</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                    <input type="password" id="loginPassword" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Enter password" required>
+                    <p class="text-xs text-gray-500 mt-1">Passwords: admin123, it123, emp123</p>
+                </div>
+                <div id="mfaSection" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">MFA Code (Admin Only)</label>
+                    <input type="text" id="mfaCode" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Enter MFA code" maxlength="6">
+                    <p class="text-xs text-gray-500 mt-1">Mock MFA Code: 123456</p>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="biometricToggle" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                    <label for="biometricToggle" class="ml-2 text-sm text-gray-700">Enable Biometric Login (Future Enhancement)</label>
+                </div>
+                <button type="button" id="biometricLoginBtn" disabled class="w-full bg-gray-400 text-white py-2 px-4 rounded-lg cursor-not-allowed text-sm mb-2">
+                    Biometric Login (Disabled)
+                </button>
+                <div id="loginError" class="hidden text-red-600 text-sm"></div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                    Login
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Application (Hidden until login) -->
+    <div id="mainApp" class="hidden">
+        <!-- Alert Banner (Non-dismissible) -->
+        <div id="alertBanner" class="hidden alert-banner fixed top-0 left-0 right-0 z-50 bg-red-600 text-white py-3 px-4 shadow-lg">
+            <div class="container mx-auto flex items-center">
+                <svg class="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                </svg>
+                <span class="font-semibold">Critical Alert: System health issues detected!</span>
+            </div>
+        </div>
+
+        <!-- Main Container -->
+        <div class="container mx-auto px-2 sm:px-4 py-4 sm:py-8 pt-16 sm:pt-20">
+            <!-- Header -->
+            <header class="mb-4 sm:mb-8">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+                    <h1 class="text-2xl sm:text-4xl font-bold text-gray-800">IT Infrastructure Management System</h1>
+                    <div class="flex items-center space-x-4 w-full sm:w-auto">
+                        <span id="userName" class="text-sm text-gray-700"></span>
+                        <button id="logoutBtn" class="px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm">
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Section (ITM-F-060) -->
+            <section id="dashboard" class="mb-6 sm:mb-8">
+                <h2 class="text-xl sm:text-2xl font-semibold text-gray-800 mb-4">Dashboard</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+                    <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+                        <div class="text-xs sm:text-sm text-gray-600 mb-1">Total Assets</div>
+                        <div class="text-2xl sm:text-3xl font-bold text-blue-600" id="metricTotalAssets">-</div>
+                    </div>
+                    <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+                        <div class="text-xs sm:text-sm text-gray-600 mb-1">Licenses Expiring Soon</div>
+                        <div class="text-2xl sm:text-3xl font-bold text-orange-600" id="metricLicensesExpiring">-</div>
+                    </div>
+                    <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+                        <div class="text-xs sm:text-sm text-gray-600 mb-1">Hardware Health Alerts</div>
+                        <div class="text-2xl sm:text-3xl font-bold text-red-600" id="metricHardwareAlerts">-</div>
+                    </div>
+                    <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+                        <div class="text-xs sm:text-sm text-gray-600 mb-1">Backup Failures</div>
+                        <div class="text-2xl sm:text-3xl font-bold text-red-600" id="metricBackupFailures">-</div>
+                    </div>
+                    <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+                        <div class="text-xs sm:text-sm text-gray-600 mb-1">Network Events</div>
+                        <div class="text-2xl sm:text-3xl font-bold text-yellow-600" id="metricNetworkEvents">-</div>
+                    </div>
+                </div>
+                
+                <!-- External Integration Status Dashboard (ITM-F-041) - Admin/IT Staff Only -->
+                <div id="integrationStatusCard" class="bg-white p-4 sm:p-6 rounded-lg shadow-md mb-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">External Integration Status</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="integrationStatus">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Reporting & Analytics Section (ITM-F-061) -->
+                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md mb-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Reporting & Analytics - Asset Distribution by Department</h3>
+                    <div id="analyticsChart" class="space-y-3">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+                    <button id="generateReportBtn" disabled class="px-4 sm:px-6 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed text-sm sm:text-base">
+                        Generate PDF Report (ITM-F-061)
+                    </button>
+                </div>
+            </section>
+
+            <!-- Asset Management Section (ITM-F-001) -->
+            <section id="assets" class="mb-6 sm:mb-8">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+                    <h2 class="text-xl sm:text-2xl font-semibold text-gray-800">Asset Management</h2>
+                    <button id="addAssetBtn" class="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm sm:text-base">
+                        + Add Asset
+                    </button>
+                </div>
+                <div class="bg-white rounded-lg shadow-md overflow-hidden table-container">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Asset ID</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned User</th>
+                            <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Purchase Date</th>
+                            <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Warranty Expiry</th>
+                            <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
+                            <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="assetsTableBody" class="bg-white divide-y divide-gray-200">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- License Management Section (ITM-F-010) -->
+            <section id="licenses" class="mb-6 sm:mb-8">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+                    <h2 class="text-xl sm:text-2xl font-semibold text-gray-800">License Management</h2>
+                    <button id="addLicenseBtn" class="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm sm:text-base">
+                        + Add License
+                    </button>
+                </div>
+                <div class="bg-white rounded-lg shadow-md overflow-hidden table-container">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">License ID</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Software Name</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">License Key</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Seats (Used/Total)</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expiry Date</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Compliance</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="licensesTableBody" class="bg-white divide-y divide-gray-200">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Hardware Health Monitoring Section (ITM-F-020) -->
+            <section id="hardware" class="mb-6 sm:mb-8">
+                <h2 class="text-xl sm:text-2xl font-semibold text-gray-800 mb-4">Hardware Health Monitoring</h2>
+                <div class="bg-white rounded-lg shadow-md overflow-hidden table-container">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Device ID</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">CPU Load (%)</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Memory Util (%)</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Overheating</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Check</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hardwareTableBody" class="bg-white divide-y divide-gray-200">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Network Usage Monitoring Section (ITM-F-030) -->
+            <section id="network" class="mb-6 sm:mb-8">
+                <h2 class="text-xl sm:text-2xl font-semibold text-gray-800 mb-4">Network Usage Monitoring</h2>
+                <div class="bg-white rounded-lg shadow-md overflow-hidden table-container">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Device ID</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bandwidth (MB)</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Downtime</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Abnormal Traffic</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="networkTableBody" class="bg-white divide-y divide-gray-200">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Backup & Recovery Monitoring Section (ITM-F-040) -->
+            <section id="backup" class="mb-6 sm:mb-8">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+                    <h2 class="text-xl sm:text-2xl font-semibold text-gray-800">Backup & Recovery Monitoring</h2>
+                    <button id="verifyBackupBtn" class="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm sm:text-base">
+                        Run Verification
+                    </button>
+                </div>
+                <div class="bg-white rounded-lg shadow-md overflow-hidden table-container">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Job ID</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Asset ID</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Run Date</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Alert Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody id="backupTableBody" class="bg-white divide-y divide-gray-200">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Audit Log Section (ITM-SR-004) - Admin/IT Staff Only -->
+            <section id="auditLog" class="mb-6 sm:mb-8">
+                <h2 class="text-xl sm:text-2xl font-semibold text-gray-800 mb-4">Audit Log</h2>
+                <div class="bg-white rounded-lg shadow-md overflow-hidden table-container">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Timestamp</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User Role</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditLogTableBody" class="bg-white divide-y divide-gray-200">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Asset Modal -->
+    <div id="assetModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <h3 class="text-xl font-semibold mb-4" id="assetModalTitle">Add Asset</h3>
+            <form id="assetForm">
+                <input type="hidden" id="assetAction" value="create">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Asset ID</label>
+                    <input type="text" id="assetId" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Asset Type</label>
+                    <input type="text" id="assetType" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Assigned User</label>
+                    <input type="text" id="assignedUser" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Purchase Date</label>
+                    <input type="date" id="purchaseDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Warranty Expiry Date</label>
+                    <input type="date" id="warrantyExpiryDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                    <select id="assetDepartment" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                        <option value="IT">IT</option>
+                        <option value="Engineering">Engineering</option>
+                        <option value="Sales">Sales</option>
+                        <option value="Marketing">Marketing</option>
+                        <option value="HR">HR</option>
+                        <option value="Finance">Finance</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select id="assetStatus" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                        <option value="Active">Active</option>
+                        <option value="Maintenance">Maintenance</option>
+                        <option value="Retired">Retired</option>
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" id="cancelAssetBtn" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 text-sm">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- License Modal -->
+    <div id="licenseModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <h3 class="text-xl font-semibold mb-4" id="licenseModalTitle">Add License</h3>
+            <form id="licenseForm">
+                <input type="hidden" id="licenseAction" value="create">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">License ID</label>
+                    <input type="text" id="licenseId" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Software Name</label>
+                    <input type="text" id="softwareName" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">License Key</label>
+                    <input type="text" id="licenseKey" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Total Seats</label>
+                    <input type="number" id="totalSeats" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Used Seats</label>
+                    <input type="number" id="usedSeats" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
+                    <input type="date" id="expiryDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Compliance Status</label>
+                    <select id="complianceStatus" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                        <option value="Compliant">Compliant</option>
+                        <option value="Unauthorized">Unauthorized</option>
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" id="cancelLicenseBtn" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 text-sm">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- QR Code Modal (ITM-F-001) -->
+    <div id="qrModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md">
+            <h3 class="text-xl font-semibold mb-4">QR Code for Asset</h3>
+            <div id="qrCodeContainer" class="mb-4">
+                <div class="qr-code-placeholder">
+                    <div class="text-center text-gray-500">
+                        <div class="text-4xl mb-2">📱</div>
+                        <div class="text-sm">QR Code</div>
+                    </div>
+                </div>
+            </div>
+            <div class="mb-4">
+                <p class="text-sm text-gray-700 mb-2"><strong>Asset ID:</strong> <span id="qrAssetId"></span></p>
+                <p class="text-sm text-gray-700 mb-2"><strong>Asset Type:</strong> <span id="qrAssetType"></span></p>
+                <p class="text-sm text-gray-600 italic" id="qrMessage"></p>
+            </div>
+            <button id="closeQrModal" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">Close</button>
+        </div>
+    </div>
+
+    <!-- Backup Verification Modal (ITM-F-041) -->
+    <div id="backupVerifyModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h3 class="text-xl font-semibold mb-4">Backup Verification Results</h3>
+            <div id="backupVerifyContent" class="space-y-4">
+                <!-- Populated by JavaScript -->
+            </div>
+            <div class="mt-6">
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p class="text-sm text-yellow-800 font-semibold">⚠️ Action Required</p>
+                    <p class="text-sm text-yellow-700 mt-2">Please review the failed backup jobs and take appropriate action to resolve the issues.</p>
+                </div>
+            </div>
+            <button id="closeBackupVerifyModal" class="mt-4 w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">Close</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        let currentRole = null;
+        let currentUserName = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuthStatus();
+            setupEventListeners();
+        });
+
+        // Authentication
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/auth/status`);
+                const data = await response.json();
+                if (data.authenticated) {
+                    currentRole = data.role;
+                    currentUserName = data.user;
+                    showMainApp();
+                } else {
+                    showLoginPage();
+                }
+            } catch (error) {
+                showLoginPage();
+            }
+        }
+
+        async function login(username, password, useBiometric, mfaCode) {
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, useBiometric, mfaCode })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentRole = data.role;
+                    currentUserName = data.name;
+                    showMainApp();
+                    loadAllData();
+                } else {
+                    // Show MFA section if required
+                    if (data.requiresMFA) {
+                        document.getElementById('mfaSection').classList.remove('hidden');
+                    }
+                    document.getElementById('loginError').textContent = data.message || 'Login failed';
+                    document.getElementById('loginError').classList.remove('hidden');
+                }
+            } catch (error) {
+                document.getElementById('loginError').textContent = 'Connection error. Please check if server is running.';
+                document.getElementById('loginError').classList.remove('hidden');
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch(`${API_BASE}/auth/logout`, { method: 'POST' });
+                showLoginPage();
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+        }
+
+        function showLoginPage() {
+            document.getElementById('loginPage').classList.remove('hidden');
+            document.getElementById('mainApp').classList.add('hidden');
+        }
+
+        function showMainApp() {
+            document.getElementById('loginPage').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            document.getElementById('userName').textContent = currentUserName || currentRole;
+            updateUIForRole();
+        }
+
+        function updateUIForRole() {
+            const canCRUD = currentRole === 'Admin' || currentRole === 'IT Staff';
+            document.getElementById('addAssetBtn').style.display = canCRUD ? 'block' : 'none';
+            document.getElementById('addLicenseBtn').style.display = canCRUD ? 'block' : 'none';
+            document.getElementById('auditLog').style.display = canCRUD ? 'block' : 'none';
+            document.getElementById('verifyBackupBtn').style.display = canCRUD ? 'block' : 'none';
+            document.getElementById('integrationStatusCard').style.display = canCRUD ? 'block' : 'none';
+        }
+
+        // Dashboard
+        async function loadDashboard() {
+            try {
+                const response = await fetch(`${API_BASE}/dashboard/metrics`);
+                const metrics = await response.json();
+                
+                document.getElementById('metricTotalAssets').textContent = metrics.totalAssets;
+                document.getElementById('metricLicensesExpiring').textContent = metrics.licensesExpiringSoon;
+                document.getElementById('metricHardwareAlerts').textContent = metrics.hardwareHealthAlerts;
+                document.getElementById('metricBackupFailures').textContent = metrics.backupFailures;
+                document.getElementById('metricNetworkEvents').textContent = metrics.networkEvents;
+
+                const alertBanner = document.getElementById('alertBanner');
+                if (metrics.hardwareHealthAlerts > 0 || metrics.backupFailures > 0) {
+                    alertBanner.classList.remove('hidden');
+                } else {
+                    alertBanner.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+            }
+        }
+
+        async function loadIntegrationStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/integrations/status`);
+                const integrations = await response.json();
+                const container = document.getElementById('integrationStatus');
+                container.innerHTML = '';
+                
+                Object.values(integrations).forEach(integration => {
+                    const statusColor = integration.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+                    const card = document.createElement('div');
+                    card.className = 'bg-gray-50 p-4 rounded-lg';
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="font-medium text-sm text-gray-700">${integration.name}</span>
+                            <span class="px-2 py-1 rounded text-xs font-semibold ${statusColor}">${integration.status}</span>
+                        </div>
+                        <div class="text-xs text-gray-500">Last Check: ${integration.lastCheck}</div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (error) {
+                console.error('Error loading integration status:', error);
+            }
+        }
+
+        async function loadAnalytics() {
+            try {
+                const response = await fetch(`${API_BASE}/analytics/assets-by-department`);
+                const deptData = await response.json();
+                const container = document.getElementById('analyticsChart');
+                container.innerHTML = '';
+                
+                const maxCount = Math.max(...Object.values(deptData));
+                
+                Object.entries(deptData).forEach(([dept, count]) => {
+                    const percentage = (count / maxCount) * 100;
+                    const bar = document.createElement('div');
+                    bar.className = 'flex items-center space-x-3';
+                    bar.innerHTML = `
+                        <div class="w-24 text-sm font-medium text-gray-700">${dept}</div>
+                        <div class="flex-1 bg-gray-200 rounded-full h-6 overflow-hidden">
+                            <div class="bg-blue-600 h-full rounded-full flex items-center justify-end pr-2" style="width: ${percentage}%">
+                                <span class="text-xs text-white font-semibold">${count}</span>
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(bar);
+                });
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+            }
+        }
+
+        // Assets
+        async function loadAssets() {
+            try {
+                const response = await fetch(`${API_BASE}/assets`);
+                const assets = await response.json();
+                const tbody = document.getElementById('assetsTableBody');
+                tbody.innerHTML = '';
+                
+                assets.forEach(asset => {
+                    const row = document.createElement('tr');
+                    const canCRUD = currentRole === 'Admin' || currentRole === 'IT Staff';
+                    row.innerHTML = `
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">${asset.assetId}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">${asset.assetType}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">${asset.assignedUser}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">${asset.purchaseDate}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">${asset.warrantyExpiryDate}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">${asset.department || 'N/A'}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">${asset.status}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm">
+                            <button class="qr-asset-btn px-2 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 text-xs" onclick="generateQR('${asset.assetId}')">QR</button>
+                            <button class="edit-asset-btn px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 ml-1 text-xs" onclick="editAsset('${asset.assetId}')" style="display: ${canCRUD ? 'inline-block' : 'none'}">Edit</button>
+                            <button class="delete-asset-btn px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 ml-1 text-xs" onclick="deleteAsset('${asset.assetId}')" style="display: ${canCRUD ? 'inline-block' : 'none'}">Del</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading assets:', error);
+            }
+        }
+
+        async function generateQR(assetId) {
+            try {
+                const response = await fetch(`${API_BASE}/assets/${assetId}/qr`);
+                const qrData = await response.json();
+                
+                document.getElementById('qrAssetId').textContent = qrData.assetId;
+                document.getElementById('qrAssetType').textContent = qrData.assetType;
+                document.getElementById('qrMessage').textContent = qrData.message;
+                
+                // Generate QR code using QRCode.js
+                const qrContainer = document.getElementById('qrCodeContainer');
+                qrContainer.innerHTML = '<canvas id="qrCanvas"></canvas>';
+                QRCode.toCanvas(document.getElementById('qrCanvas'), qrData.url, {
+                    width: 200,
+                    margin: 2
+                }, (error) => {
+                    if (error) {
+                        qrContainer.innerHTML = '<div class="qr-code-placeholder"><div class="text-center text-gray-500"><div class="text-4xl mb-2">📱</div><div class="text-sm">QR Code</div></div></div>';
+                    }
+                });
+                
+                document.getElementById('qrModal').classList.remove('hidden');
+            } catch (error) {
+                console.error('Error generating QR:', error);
+                alert('Error generating QR code');
+            }
+        }
+
+        function openAssetModal(action = 'create', asset = null) {
+            const modal = document.getElementById('assetModal');
+            const form = document.getElementById('assetForm');
+            document.getElementById('assetAction').value = action;
+            document.getElementById('assetModalTitle').textContent = action === 'create' ? 'Add Asset' : 'Edit Asset';
+            
+            if (asset) {
+                document.getElementById('assetId').value = asset.assetId;
+                document.getElementById('assetId').disabled = true;
+                document.getElementById('assetType').value = asset.assetType;
+                document.getElementById('assignedUser').value = asset.assignedUser;
+                document.getElementById('purchaseDate').value = asset.purchaseDate;
+                document.getElementById('warrantyExpiryDate').value = asset.warrantyExpiryDate;
+                document.getElementById('assetDepartment').value = asset.department || 'IT';
+                document.getElementById('assetStatus').value = asset.status;
+            } else {
+                form.reset();
+                document.getElementById('assetId').disabled = false;
+            }
+            
+            modal.classList.remove('hidden');
+        }
+
+        function editAsset(assetId) {
+            fetch(`${API_BASE}/assets`)
+                .then(res => res.json())
+                .then(assets => {
+                    const asset = assets.find(a => a.assetId === assetId);
+                    if (asset) openAssetModal('update', asset);
+                });
+        }
+
+        async function deleteAsset(assetId) {
+            if (!confirm('Are you sure you want to delete this asset?')) return;
+            
+            try {
+                await fetch(`${API_BASE}/assets`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'delete', assetId })
+                });
+                loadAssets();
+                loadDashboard();
+                loadAuditLog();
+            } catch (error) {
+                console.error('Error deleting asset:', error);
+                alert('Error deleting asset');
+            }
+        }
+
+        // Licenses
+        async function loadLicenses() {
+            try {
+                const response = await fetch(`${API_BASE}/licenses`);
+                const licenses = await response.json();
+                const tbody = document.getElementById('licensesTableBody');
+                tbody.innerHTML = '';
+                
+                licenses.forEach(license => {
+                    const row = document.createElement('tr');
+                    const canCRUD = currentRole === 'Admin' || currentRole === 'IT Staff';
+                    const isExpiringSoon = new Date(license.expiryDate) <= new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+                    const complianceStatus = license.complianceStatus || 'Compliant';
+                    const complianceColor = complianceStatus === 'Unauthorized' ? 'text-red-600 font-semibold' : 'text-green-600';
+                    row.innerHTML = `
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">${license.licenseId}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">${license.softwareName}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">${license.licenseKey}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">${license.usedSeats}/${license.totalSeats}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm ${isExpiringSoon ? 'text-orange-600 font-semibold' : 'text-gray-500'}">${license.expiryDate}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm ${complianceColor}">${complianceStatus}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm">
+                            <button class="edit-license-btn px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-xs" onclick="editLicense('${license.licenseId}')" style="display: ${canCRUD ? 'inline-block' : 'none'}">Edit</button>
+                            <button class="delete-license-btn px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 ml-1 text-xs" onclick="deleteLicense('${license.licenseId}')" style="display: ${canCRUD ? 'inline-block' : 'none'}">Del</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading licenses:', error);
+            }
+        }
+
+        function openLicenseModal(action = 'create', license = null) {
+            const modal = document.getElementById('licenseModal');
+            const form = document.getElementById('licenseForm');
+            document.getElementById('licenseAction').value = action;
+            document.getElementById('licenseModalTitle').textContent = action === 'create' ? 'Add License' : 'Edit License';
+            
+            if (license) {
+                document.getElementById('licenseId').value = license.licenseId;
+                document.getElementById('licenseId').disabled = true;
+                document.getElementById('softwareName').value = license.softwareName;
+                document.getElementById('licenseKey').value = license.licenseKey;
+                document.getElementById('totalSeats').value = license.totalSeats;
+                document.getElementById('usedSeats').value = license.usedSeats;
+                document.getElementById('expiryDate').value = license.expiryDate;
+                document.getElementById('complianceStatus').value = license.complianceStatus || 'Compliant';
+            } else {
+                form.reset();
+                document.getElementById('licenseId').disabled = false;
+            }
+            
+            modal.classList.remove('hidden');
+        }
+
+        function editLicense(licenseId) {
+            fetch(`${API_BASE}/licenses`)
+                .then(res => res.json())
+                .then(licenses => {
+                    const license = licenses.find(l => l.licenseId === licenseId);
+                    if (license) openLicenseModal('update', license);
+                });
+        }
+
+        async function deleteLicense(licenseId) {
+            if (!confirm('Are you sure you want to delete this license?')) return;
+            
+            try {
+                await fetch(`${API_BASE}/licenses`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'delete', licenseId })
+                });
+                loadLicenses();
+                loadDashboard();
+                loadAuditLog();
+            } catch (error) {
+                console.error('Error deleting license:', error);
+                alert('Error deleting license');
+            }
+        }
+
+        // Hardware Health
+        async function loadHardware() {
+            try {
+                const response = await fetch(`${API_BASE}/monitoring/hardware`);
+                const hardware = await response.json();
+                const tbody = document.getElementById('hardwareTableBody');
+                tbody.innerHTML = '';
+                
+                hardware.forEach(device => {
+                    const row = document.createElement('tr');
+                    const hasAlert = device.cpuLoad > 85 || device.isOverheating;
+                    const statusBadge = hasAlert 
+                        ? '<span class="px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-semibold">ALERT</span>'
+                        : '<span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-semibold">OK</span>';
+                    
+                    row.innerHTML = `
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">${device.deviceId}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm ${device.cpuLoad > 85 ? 'text-red-600 font-semibold' : 'text-gray-500'}">${device.cpuLoad}%</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">${device.memoryUtil}%</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm ${device.isOverheating ? 'text-red-600 font-semibold' : 'text-gray-500'}">${device.isOverheating ? 'Yes' : 'No'}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">${device.lastCheck}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm">${statusBadge}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading hardware:', error);
+            }
+        }
+
+        // Network Usage
+        async function loadNetwork() {
+            try {
+                const response = await fetch(`${API_BASE}/monitoring/network`);
+                const network = await response.json();
+                const tbody = document.getElementById('networkTableBody');
+                tbody.innerHTML = '';
+                
+                network.forEach(device => {
+                    const row = document.createElement('tr');
+                    const hasIssue = device.isDowntime || device.abnormalTraffic;
+                    const statusBadge = hasIssue
+                        ? '<span class="px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-semibold">ISSUE</span>'
+                        : '<span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-semibold">NORMAL</span>';
+                    
+                    row.innerHTML = `
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">${device.deviceId}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">${device.bandwidthMB} MB</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm ${device.isDowntime ? 'text-red-600 font-semibold' : 'text-gray-500'}">${device.isDowntime ? 'Yes' : 'No'}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm ${device.abnormalTraffic ? 'text-red-600 font-semibold' : 'text-gray-500'}">${device.abnormalTraffic ? 'Yes' : 'No'}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm">${statusBadge}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading network:', error);
+            }
+        }
+
+        // Backup & Recovery
+        async function loadBackup() {
+            try {
+                const response = await fetch(`${API_BASE}/monitoring/backup`);
+                const backups = await response.json();
+                const tbody = document.getElementById('backupTableBody');
+                tbody.innerHTML = '';
+                
+                backups.forEach(job => {
+                    const row = document.createElement('tr');
+                    let statusBadge;
+                    if (job.status === 'Success') {
+                        statusBadge = '<span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-semibold">Success</span>';
+                    } else if (job.status === 'Failure') {
+                        statusBadge = '<span class="px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-semibold">Failure</span>';
+                    } else if (job.status === 'Under Investigation') {
+                        statusBadge = '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-semibold">Under Investigation</span>';
+                    } else {
+                        statusBadge = '<span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs font-semibold">Missed</span>';
+                    }
+                    
+                    row.innerHTML = `
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">${job.jobId}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">${job.assetId}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">${job.lastRunDate}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm">${statusBadge}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm ${job.alertReason ? 'text-red-600' : 'text-gray-500'}">${job.alertReason || '-'}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading backup:', error);
+            }
+        }
+
+        async function verifyBackup() {
+            try {
+                const response = await fetch(`${API_BASE}/monitoring/backup/verify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                
+                const content = document.getElementById('backupVerifyContent');
+                content.innerHTML = `
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                        <p class="text-sm text-blue-800"><strong>Verification Complete</strong></p>
+                        <p class="text-xs text-blue-700 mt-1">Found ${data.verifiedJobs} job(s) requiring attention</p>
+                        <p class="text-xs text-blue-600 mt-1">Timestamp: ${data.timestamp}</p>
+                    </div>
+                `;
+                
+                data.results.forEach(result => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-gray-50 border border-gray-200 rounded-lg p-4';
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <p class="font-semibold text-sm text-gray-800">${result.jobId}</p>
+                                <p class="text-xs text-gray-600">Asset: ${result.assetId}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs text-gray-500">Previous: ${result.previousStatus}</p>
+                                <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-semibold">${result.newStatus}</span>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-700 mt-2"><strong>Issue:</strong> ${result.alertReason}</p>
+                        <p class="text-xs text-gray-700 mt-1"><strong>Action:</strong> ${result.recommendedAction}</p>
+                    `;
+                    content.appendChild(card);
+                });
+                
+                // Reload backup table to show updated statuses
+                loadBackup();
+                
+                document.getElementById('backupVerifyModal').classList.remove('hidden');
+                loadAuditLog();
+            } catch (error) {
+                console.error('Error verifying backup:', error);
+                alert('Error verifying backups. Make sure you have Admin/IT Staff permissions.');
+            }
+        }
+
+        // Audit Log
+        async function loadAuditLog() {
+            try {
+                const response = await fetch(`${API_BASE}/audit-log`);
+                if (response.status === 403) {
+                    document.getElementById('auditLog').style.display = 'none';
+                    return;
+                }
+                const logs = await response.json();
+                const tbody = document.getElementById('auditLogTableBody');
+                tbody.innerHTML = '';
+                
+                logs.reverse().forEach(log => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">${log.timestamp}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">${log.userRole}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">${log.action}</td>
+                        <td class="px-3 sm:px-6 py-4 text-xs sm:text-sm text-gray-500">${log.details}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading audit log:', error);
+            }
+        }
+
+        function loadAllData() {
+            loadDashboard();
+            loadIntegrationStatus();
+            loadAnalytics();
+            loadAssets();
+            loadLicenses();
+            loadHardware();
+            loadNetwork();
+            loadBackup();
+            loadAuditLog();
+        }
+
+        // Event Listeners
+        function setupEventListeners() {
+            // Login form
+            document.getElementById('loginForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const username = document.getElementById('loginUsername').value;
+                const password = document.getElementById('loginPassword').value;
+                const useBiometric = document.getElementById('biometricToggle').checked;
+                const mfaCode = document.getElementById('mfaCode').value;
+                login(username, password, useBiometric, mfaCode);
+            });
+
+            // Logout
+            document.getElementById('logoutBtn').addEventListener('click', logout);
+
+            // Asset modal
+            document.getElementById('addAssetBtn').addEventListener('click', () => openAssetModal('create'));
+            document.getElementById('cancelAssetBtn').addEventListener('click', () => {
+                document.getElementById('assetModal').classList.add('hidden');
+            });
+            document.getElementById('assetForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const action = document.getElementById('assetAction').value;
+                    const data = {
+                        action,
+                        assetId: document.getElementById('assetId').value,
+                        assetType: document.getElementById('assetType').value,
+                        assignedUser: document.getElementById('assignedUser').value,
+                        purchaseDate: document.getElementById('purchaseDate').value,
+                        warrantyExpiryDate: document.getElementById('warrantyExpiryDate').value,
+                        department: document.getElementById('assetDepartment').value,
+                        status: document.getElementById('assetStatus').value
+                    };
+
+                try {
+                    await fetch(`${API_BASE}/assets`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    document.getElementById('assetModal').classList.add('hidden');
+                    loadAssets();
+                    loadDashboard();
+                    loadAuditLog();
+                } catch (error) {
+                    console.error('Error saving asset:', error);
+                    alert('Error saving asset');
+                }
+            });
+
+            // License modal
+            document.getElementById('addLicenseBtn').addEventListener('click', () => openLicenseModal('create'));
+            document.getElementById('cancelLicenseBtn').addEventListener('click', () => {
+                document.getElementById('licenseModal').classList.add('hidden');
+            });
+            document.getElementById('licenseForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const action = document.getElementById('licenseAction').value;
+                    const data = {
+                        action,
+                        licenseId: document.getElementById('licenseId').value,
+                        softwareName: document.getElementById('softwareName').value,
+                        licenseKey: document.getElementById('licenseKey').value,
+                        totalSeats: parseInt(document.getElementById('totalSeats').value),
+                        usedSeats: parseInt(document.getElementById('usedSeats').value),
+                        expiryDate: document.getElementById('expiryDate').value,
+                        complianceStatus: document.getElementById('complianceStatus').value
+                    };
+
+                try {
+                    await fetch(`${API_BASE}/licenses`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    document.getElementById('licenseModal').classList.add('hidden');
+                    loadLicenses();
+                    loadDashboard();
+                    loadAuditLog();
+                } catch (error) {
+                    console.error('Error saving license:', error);
+                    alert('Error saving license');
+                }
+            });
+
+            // QR Modal
+            document.getElementById('closeQrModal').addEventListener('click', () => {
+                document.getElementById('qrModal').classList.add('hidden');
+            });
+
+            // Backup Verify Modal
+            document.getElementById('verifyBackupBtn').addEventListener('click', verifyBackup);
+            document.getElementById('closeBackupVerifyModal').addEventListener('click', () => {
+                document.getElementById('backupVerifyModal').classList.add('hidden');
+            });
+        }
+
+        // Make functions global for onclick handlers
+        window.editAsset = editAsset;
+        window.deleteAsset = deleteAsset;
+        window.editLicense = editLicense;
+        window.deleteLicense = deleteLicense;
+        window.generateQR = generateQR;
+    </script>
+</body>
+</html>
