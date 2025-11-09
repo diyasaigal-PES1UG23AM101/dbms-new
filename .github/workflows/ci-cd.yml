@@ -169,23 +169,25 @@ jobs:
     
     - name: Build Docker image
       uses: docker/build-push-action@v4
+      id: build
       with:
         context: .
         push: false
         tags: iims:latest
+        load: true
         cache-from: type=registry,ref=iims:buildcache
         cache-to: type=inline
+        outputs: type=docker,dest=/tmp/iims-image.tar
     
-    - name: Save Docker image
+    - name: Compress Docker image
       run: |
-        docker save iims:latest -o iims-image.tar
-        gzip iims-image.tar
+        gzip /tmp/iims-image.tar
     
     - name: Upload Docker image artifact
       uses: actions/upload-artifact@v4
       with:
         name: docker-image
-        path: iims-image.tar.gz
+        path: /tmp/iims-image.tar.gz
         retention-days: 7
 
   security-scan:
